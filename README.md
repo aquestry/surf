@@ -22,5 +22,5 @@ Runs fully in Docker, no manual setup required.
 ### 1. Create `.env`
 
 ```env
-SURF_REPO_1=https://github.com/your-org/your-kotlin-lib
-SURF_REPO_2=https://github.com/another-dev/java-lib
+SURF_REPO_1=github.com/your-org/your-kotlin-lib
+SURF_REPO_2=github.com/another-dev/java-lib
