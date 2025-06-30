@@ -1,5 +1,6 @@
 .idea
 .gradle
+gradle
 surf.iml
 repos
 maven-repo
