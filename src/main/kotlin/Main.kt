@@ -1,3 +1,5 @@
+package dev.aquestry
+
 import config.loadTrackedRepos
 import build.buildAndPublish
 import git.syncRepoTarget
@@ -10,6 +12,7 @@ lateinit var logger: Logger
 
 fun main() {
     logger = LoggerFactory.getLogger("Surf")
+    logger.info("Surf is starting...")
     val outputRepo = File("maven-repo").apply { mkdirs() }
     val baseDir    = File("repos").apply { mkdirs() }
     val repoTargets = loadTrackedRepos()
@@ -20,4 +23,5 @@ fun main() {
             buildAndPublish(dir, outputRepo, target)
         }
     startHttpServer(outputRepo, baseDir)
+    logger.info("Done!")
 }

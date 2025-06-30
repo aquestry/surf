@@ -3,7 +3,7 @@ package http
 import build.buildAndPublish
 import config.RepoTarget
 import git.syncRepoTarget
-import logger
+import dev.aquestry.logger
 import com.sun.net.httpserver.HttpServer
 import java.io.File
 import java.net.InetSocketAddress
