@@ -1,8 +1,6 @@
 package dev.aquestry
 
 import config.loadTrackedRepos
-import build.buildAndPublish
-import git.syncRepoTarget
 import http.startHttpServer
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -14,14 +12,8 @@ fun main() {
     logger = LoggerFactory.getLogger("Surf")
     logger.info("Surf is starting...")
     val outputRepo = File("maven-repo").apply { mkdirs() }
-    val baseDir    = File("repos").apply { mkdirs() }
-    val repoTargets = loadTrackedRepos()
-    repoTargets
-        .filter { it.tag == null && it.commit == null }
-        .forEach { target ->
-            val dir = syncRepoTarget(target, baseDir)
-            buildAndPublish(dir, outputRepo, target)
-        }
-    startHttpServer(outputRepo, baseDir)
-    logger.info("Done!")
+    val baseDir = File("repos").apply { mkdirs() }
+    val trackedRepos = loadTrackedRepos()
+    startHttpServer(outputRepo, baseDir, trackedRepos)
+    logger.info("Server started - builds will happen on demand")
 }

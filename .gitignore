@@ -1,7 +1,6 @@
 .idea
 .gradle
-gradle
-build
-surf.iml
 repos
 maven-repo
+build
+surf.iml

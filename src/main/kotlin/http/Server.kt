@@ -8,17 +8,19 @@ import com.sun.net.httpserver.HttpServer
 import java.io.File
 import java.net.InetSocketAddress
 
-fun startHttpServer(outputRepo: File, baseDir: File, port: Int = 8080) {
+fun startHttpServer(outputRepo: File, baseDir: File, trackedRepos: List<RepoTarget>, port: Int = 8080) {
     val server = HttpServer.create(InetSocketAddress(port), 0)
     server.createContext("/") { exchange ->
         val path = exchange.requestURI.path.removePrefix("/")
         val file = File(outputRepo, path)
+
         if (!file.isFile) {
             val parts = path.split("/")
             if (parts.size >= 5) {
-                val user     = parts[2]
+                val user = parts[2]
                 val repoName = parts[3]
                 val versionStr = parts[4]
+
                 val branch: String?
                 val commit: String?
                 val tag: String?
@@ -31,12 +33,34 @@ fun startHttpServer(outputRepo: File, baseDir: File, port: Int = 8080) {
                     commit = null
                     tag = versionStr
                 }
+
                 val gitUrl = "https://github.com/$user/$repoName.git"
-                val target = RepoTarget(repoName, gitUrl, branch = branch, commit = commit, tag = tag)
-                val dir = syncRepoTarget(target, baseDir)
-                buildAndPublish(dir, outputRepo, target)
+                val requestedTarget = RepoTarget(repoName, gitUrl, branch = branch, commit = commit, tag = tag)
+
+                val isTracked = trackedRepos.any { tracked ->
+                    tracked.gitUrl == requestedTarget.gitUrl && tracked.name == requestedTarget.name
+                }
+
+                if (isTracked) {
+                    logger.info("Building on-demand: ${requestedTarget.name}")
+                    try {
+                        val dir = syncRepoTarget(requestedTarget, baseDir)
+                        buildAndPublish(dir, outputRepo, requestedTarget)
+                    } catch (e: Exception) {
+                        logger.error("Build failed for ${requestedTarget.name}: ${e.message}")
+                        exchange.sendResponseHeaders(500, -1)
+                        exchange.responseBody.close()
+                        return@createContext
+                    }
+                } else {
+                    logger.warn("Requested repo not in tracked list: $gitUrl")
+                    exchange.sendResponseHeaders(403, -1)
+                    exchange.responseBody.close()
+                    return@createContext
+                }
             }
         }
+
         val toServe = File(outputRepo, path)
         if (toServe.exists() && toServe.isFile) {
             exchange.sendResponseHeaders(200, toServe.length())
