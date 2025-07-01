@@ -16,15 +16,17 @@ fun loadTrackedRepos(): List<RepoTarget> {
 }
 
 private fun parseRepoTarget(input: String): RepoTarget? {
-    if (!input.startsWith("github.com/")) return null
+    val cleanInput = input.removePrefix("https://").removePrefix("http://")
 
-    val mainPart = input.substringAfter("github.com/")
+    if (!cleanInput.startsWith("github.com/")) return null
+
+    val mainPart = cleanInput.substringAfter("github.com/")
     val (path, ref) = mainPart.split(":", limit = 2).let {
         it.first() to it.getOrNull(1)
     }
 
-    val repoName = path.substringAfterLast("/")
-    val gitUrl = "https://github.com/$path.git"
+    val repoName = path.substringAfterLast("/").removeSuffix(".git")
+    val gitUrl = "https://github.com/${path.removeSuffix(".git")}.git"
 
     return when {
         ref == null -> RepoTarget(repoName, gitUrl)

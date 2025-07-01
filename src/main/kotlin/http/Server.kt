@@ -8,7 +8,7 @@ import com.sun.net.httpserver.HttpServer
 import java.io.File
 import java.net.InetSocketAddress
 
-fun startHttpServer(outputRepo: File, baseDir: File, trackedRepos: List<RepoTarget>, port: Int = 8080) {
+fun startHttpServer(outputRepo: File, baseDir: File, trackedRepos: Collection<RepoTarget>, port: Int = 8080) {
     val server = HttpServer.create(InetSocketAddress(port), 0)
     server.createContext("/") { exchange ->
         val path = exchange.requestURI.path.removePrefix("/")

@@ -13,7 +13,6 @@ fun main() {
     logger.info("Surf is starting...")
     val outputRepo = File("maven-repo").apply { mkdirs() }
     val baseDir = File("repos").apply { mkdirs() }
-    val trackedRepos = loadTrackedRepos()
-    startHttpServer(outputRepo, baseDir, trackedRepos)
+    startHttpServer(outputRepo, baseDir, loadTrackedRepos())
     logger.info("Server started - builds will happen on demand")
 }
