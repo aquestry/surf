@@ -3,72 +3,45 @@ package build
 import config.RepoTarget
 import dev.aquestry.logger
 import java.io.File
+import java.lang.ProcessBuilder
 
-fun buildAndPublish(repoDir: File, outputRepo: File, target: RepoTarget) {
-    logger.info("Building ${target.name}...")
+fun buildAndPublish(projectDir: File, outputRepo: File, target: RepoTarget) {
+    val wrapper = File(projectDir, "gradlew")
 
-    val gradlewFile = File(repoDir, "gradlew")
-    val gradlewBat = File(repoDir, "gradlew.bat")
-    val buildGradle = File(repoDir, "build.gradle")
-    val buildGradleKts = File(repoDir, "build.gradle.kts")
-
-    if (!buildGradle.exists() && !buildGradleKts.exists()) {
-        throw RuntimeException("No build.gradle or build.gradle.kts found in ${target.name}")
+    if (wrapper.exists() && !System.getProperty("os.name").startsWith("Windows")) {
+        wrapper.setExecutable(true)
     }
 
-    val isWindows = System.getProperty("os.name").lowercase().contains("windows")
-    val gradleCmd = when {
-        isWindows && gradlewBat.exists() -> gradlewBat.absolutePath
-        !isWindows && gradlewFile.exists() -> gradlewFile.absolutePath
+    val gradlew = when {
+        wrapper.exists() && System.getProperty("os.name").startsWith("Windows") -> "gradlew.bat"
+        wrapper.exists() -> "./gradlew"
         else -> "gradle"
     }
 
-    if (gradlewFile.exists() && !isWindows) {
-        val makeExecutable = ProcessBuilder("chmod", "+x", gradlewFile.absolutePath)
-            .directory(repoDir)
-            .start()
-        makeExecutable.waitFor()
-    }
+    val proc = ProcessBuilder(gradlew, "build")
+        .directory(projectDir)
+        .inheritIO()
+        .start()
 
-    val publishLocalCmd = ProcessBuilder(gradleCmd, "publishToMavenLocal", "--no-daemon", "--continue")
-        .directory(repoDir)
-        .redirectErrorStream(true)
+    if (proc.waitFor() != 0) return
 
-    val env = publishLocalCmd.environment()
-    env["MAVEN_REPO"] = outputRepo.absolutePath
-    env["GRADLE_OPTS"] = "-Dorg.gradle.jvmargs=-Xmx2g"
+    val jar = File(projectDir, "build/libs")
+        .listFiles()?.firstOrNull { it.extension == "jar" } ?: return
 
-    val process = publishLocalCmd.start()
+    val groupPath = "com/github/" +
+            target.gitUrl.substringAfter("github.com/").substringBeforeLast(".git").lowercase()
+    val version = target.tag ?: target.commit ?: "1.0.0"
 
-    process.inputStream.bufferedReader().useLines { lines ->
-        lines.forEach { line ->
-            logger.info("[${target.name}] $line")
-        }
-    }
+    val destDir = File(outputRepo, "$groupPath/$version").apply { mkdirs() }
+    File(destDir, "${target.name}-$version.jar").apply { jar.copyTo(this, overwrite = true) }
+    File(destDir, "${target.name}-$version.pom").writeText("""
+        <project xmlns="http://maven.apache.org/POM/4.0.0">
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>com.github.${target.gitUrl.substringAfter("github.com/").substringBefore("/")}</groupId>
+          <artifactId>${target.name}</artifactId>
+          <version>$version</version>
+        </project>
+    """.trimIndent())
 
-    val exitCode = process.waitFor()
-    if (exitCode != 0) {
-        throw RuntimeException("Build failed for ${target.name} with exit code $exitCode")
-    }
-
-    val userHome = System.getProperty("user.home")
-    val m2Repo = File(userHome, ".m2/repository")
-
-    if (m2Repo.exists()) {
-        logger.info("Copying artifacts from local Maven repo to output repo...")
-        copyRecursively(m2Repo, outputRepo)
-    }
-
-    logger.info("Successfully built and published ${target.name}")
-}
-
-private fun copyRecursively(source: File, target: File) {
-    if (source.isDirectory) {
-        target.mkdirs()
-        source.listFiles()?.forEach { child ->
-            copyRecursively(child, File(target, child.name))
-        }
-    } else {
-        source.copyTo(target, overwrite = true)
-    }
+    logger.info("Published ${target.name}-$version")
 }
